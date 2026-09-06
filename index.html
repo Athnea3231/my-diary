@@ -200,7 +200,6 @@
 
     .weekday-header { font-weight: bold; font-size: 0.85rem; color: #aaa; padding-bottom: 6px; }
 
-    /* 月曆格子與貓圖示置中/放大調整 */
     .calendar-day {
       position: relative;
       aspect-ratio: 1 / 1.15;
@@ -227,15 +226,15 @@
     }
 
     .day-mood {
-      font-size: 1.5rem; /* 放大貓咪表情圖示 */
+      font-size: 1.5rem;
       line-height: 1;
-      margin: auto 0;   /* 上下自動垂直置中 */
+      margin: auto 0;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    /* 心情瓶與圓餅圖專用樣式 */
+    /* 🏺 心情瓶與圓餅圖樣式 */
     .jar-wrapper {
       position: relative;
       width: 260px;
@@ -432,7 +431,7 @@
     <div class="stats-card">
       <div style="font-weight: bold; color: var(--primary-dark); font-size: 1.1rem;">📊 每月心情分析圖</div>
       <div class="chart-container">
-        <canvas id="pie-chart-canvas" width="180" height="180"></canvas>
+        <canvas id="pie-chart-canvas" width="360" height="360" style="width:180px; height:180px;"></canvas>
         <div class="legend-list" id="pie-legend"></div>
       </div>
     </div>
@@ -671,7 +670,7 @@
     renderCalendar();
   }
 
-  /* 🏺 心情瓶與百分比圓餅圖邏輯 */
+  /* 🏺 心情瓶與高清晰度 Retina Canvas 邏輯 */
   function renderJarPage() {
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
@@ -700,7 +699,8 @@
 
   function initJarPhysics(moodList) {
     const canvas = document.getElementById('jar-canvas');
-    
+    const dpr = window.devicePixelRatio || 2; // 取得裝置像素比，提升高 DPI 清晰度
+
     if (engine) {
       Matter.Engine.clear(engine);
       Matter.Render.stop(render);
@@ -718,7 +718,8 @@
         width: 260,
         height: 320,
         wireframes: false,
-        background: 'transparent'
+        background: 'transparent',
+        pixelRatio: dpr // 開啟高清點對點渲染
       }
     });
 
@@ -732,18 +733,19 @@
 
     Composite.add(engine.world, [ground, leftWall, rightWall]);
 
+    // 縮小球球半徑（從 22 縮小至 18），提高瓶子容量與可緻度
+    const ballRadius = 18;
     const balls = moodList.map((mood, idx) => {
-      const radius = 22;
-      const x = 50 + (idx * 30) % (width - 100);
-      const y = -20 - (idx * 40);
+      const x = 50 + (idx * 25) % (width - 100);
+      const y = -20 - (idx * 35);
 
-      const ball = Bodies.circle(x, y, radius, {
-        restitution: 0.6,
-        friction: 0.3,
+      const ball = Bodies.circle(x, y, ballRadius, {
+        restitution: 0.65,
+        friction: 0.2,
         render: {
           fillStyle: moodColors[mood] || '#FFB6C1',
           strokeStyle: '#ffffff',
-          lineWidth: 2
+          lineWidth: 2.5
         }
       });
       ball.moodEmoji = mood;
@@ -752,9 +754,10 @@
 
     Composite.add(engine.world, balls);
 
+    // 高解析度繪製貓咪表情
     Matter.Events.on(render, 'afterRender', () => {
       const ctx = render.context;
-      ctx.font = '20px sans-serif';
+      ctx.font = '20px "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
@@ -763,12 +766,15 @@
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(ball.angle);
-        ctx.fillText(ball.moodEmoji, 0, 2);
+        ctx.fillText(ball.moodEmoji, 0, 1.5);
         ctx.restore();
       });
     });
 
     const mouse = Mouse.create(render.canvas);
+    // 適應高解析度滑鼠/觸控映射
+    mouse.pixelRatio = dpr;
+
     const mouseConstraint = MouseConstraint.create(engine, {
       mouse: mouse,
       constraint: { stiffness: 0.2, render: { visible: false } }
@@ -786,8 +792,8 @@
     bodies.forEach(b => {
       if (!b.isStatic) {
         Matter.Body.applyForce(b, b.position, {
-          x: (Math.random() - 0.5) * 0.08,
-          y: -Math.random() * 0.08
+          x: (Math.random() - 0.5) * 0.06,
+          y: -Math.random() * 0.06
         });
       }
     });
@@ -804,20 +810,20 @@
     if (total === 0) {
       ctx.fillStyle = '#eee';
       ctx.beginPath();
-      ctx.arc(90, 90, 75, 0, Math.PI * 2);
+      ctx.arc(180, 180, 150, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#aaa';
-      ctx.font = '14px sans-serif';
+      ctx.font = '28px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('這個月還沒有日記喔', 90, 95);
+      ctx.fillText('這個月還沒有日記喔', 180, 190);
       return;
     }
 
     let startAngle = -Math.PI / 2;
-    const centerX = 90;
-    const centerY = 90;
-    const radius = 75;
+    const centerX = 180;
+    const centerY = 180;
+    const radius = 150;
 
     Object.keys(moodCounts).forEach(mood => {
       const count = moodCounts[mood];
@@ -830,7 +836,7 @@
       ctx.closePath();
       ctx.fillStyle = moodColors[mood] || '#FFB6C1';
       ctx.fill();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 4;
       ctx.strokeStyle = '#ffffff';
       ctx.stroke();
 
