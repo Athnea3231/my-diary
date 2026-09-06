@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>我的可愛日誌</title>
+
+  <!-- PWA 設定：讓手機可以新增至主螢幕，並以全螢幕 App 模式開啟 -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="可愛日誌">
+  
+  <!-- 設定桌面的 App 圖示 (使用可愛貓咪圖示) -->
+  <link rel="apple-touch-icon" href="https://fav.farm/🐾">
+  <link rel="icon" href="https://fav.farm/🐾">
+
+  <style>
+    @font-face {
+      font-family: 'CustomFont';
+      src: url('');
+    }
+
+    :root {
+      --bg-color: #fff0f5;
+      --card-bg: rgba(255, 255, 255, 0.95);
+      --primary-color: #ffb6c1;
+      --primary-dark: #ff69b4;
+      --text-color: #333333;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      padding: 12px 8px 70px 8px;
+      font-family: 'CustomFont', 'Comic Sans MS', 'Chalkboard SE', 'Microsoft JhengHei', sans-serif;
+      background-color: var(--bg-color);
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body.default-bg {
+      background-image: radial-gradient(#ffb6c1 15%, transparent 16%), radial-gradient(#ffc0cb 15%, transparent 16%);
+      background-size: 40px 40px;
+      background-position: 0 0, 20px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      border-radius: 20px;
+      padding: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+      border: 3px solid #fff;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px dashed var(--primary-color);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: var(--primary-dark);
+    }
+
+    .btn-group { display: flex; gap: 4px; }
+
+    .control-panel {
+      background: #ffffff;
+      padding: 8px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      font-size: 0.8rem;
+      display: flex;
+      gap: 6px;
+      justify-content: space-around;
+      border: 1px solid #ffe4e1;
+    }
+
+    .control-panel label {
+      cursor: pointer;
+      background: #ffe4e1;
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+
+    input[type="file"] { display: none; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    input[type="text"], input[type="date"], select {
+      padding: 10px 12px;
+      border: 2px solid #ffe4e1;
+      border-radius: 12px;
+      outline: none;
+      font-size: 18px !important;
+      font-family: inherit;
+      background-color: #fff;
+      width: 100%;
+    }
+
+    .form-group { margin-bottom: 12px; }
+    .row { display: flex; gap: 8px; }
+
+    .editor {
+      min-height: 250px;
+      border: 2px solid #ffe4e1;
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+      outline: none;
+      overflow-y: auto;
+      font-size: 18px !important;
+      line-height: 1.6;
+    }
+
+    .editor img, .view-body img {
+      max-width: 85%;
+      margin: 12px auto;
+      display: block;
+      background: #ffffff;
+      padding: 10px 10px 28px 10px;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 1px solid #eaeaea;
+      transform: rotate(-1deg);
+    }
+
+    .view-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      border: 2px solid #ffe4e1;
+      min-height: 300px;
+    }
+
+    .view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ffe4e1;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    .view-date { font-size: 1.1rem; color: #888; font-weight: bold; }
+    .view-mood { font-size: 2rem; }
+    .view-title { font-size: 1.5rem; font-weight: bold; color: var(--primary-dark); margin-bottom: 15px; }
+    .view-body { font-size: 18px; line-height: 1.7; word-break: break-word; }
+    .empty-msg { text-align: center; color: #aaa; margin-top: 80px; font-size: 1.1rem; }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .calendar-title { font-weight: bold; font-size: 1.2rem; color: var(--primary-dark); }
+    .calendar-nav-btn {
+      background: #ffe4e1;
+      border: none;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      font-weight: bold;
+      color: var(--primary-dark);
+      font-size: 1rem;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      text-align: center;
+      width: 100%;
+    }
+
+    .weekday-header { font-weight: bold; font-size: 0.85rem; color: #aaa; padding-bottom: 6px; }
+
+    .calendar-day {
+      aspect-ratio: 1 / 1.05;
+      background: #fffafa;
+      border: 1px solid #ffe4e1;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 1px;
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    .calendar-day.empty { background: transparent; border: none; }
+    .calendar-day.selected { border: 2px solid var(--primary-dark); background: #fff0f5; }
+    .calendar-day.today { font-weight: bold; color: var(--primary-dark); background: #fff8f9; }
+    .day-number { font-size: 0.8rem; }
+    .day-mood { font-size: 1.1rem; line-height: 1; }
+
+    .btn {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 16px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    .btn-secondary { background: #b0e0e6; color: #333; padding: 6px 10px; font-size: 0.8rem; }
+    .btn-danger { background: #ffb3b3; color: #721c24; }
+
+    .navbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 2px solid #ffe4e1;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #aaa;
+      font-size: 0.75rem;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: inherit;
+    }
+
+    .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
+    .nav-item.active { color: var(--primary-dark); font-weight: bold; }
+  </style>
+</head>
+<body class="default-bg">
+
+<div class="container">
+  <div class="header">
+    <h1>🐾 魔法可愛日誌</h1>
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="exportData()">匯出</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">匯入</button>
+      <input type="file" id="import-file" accept=".json" onchange="importData(event)">
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <label>🌸 背景 <input type="file" accept="image/*" onchange="uploadBackground(event)"></label>
+    <label>🔤 字體 <input type="file" accept=".ttf,.otf,.woff,.woff2" onchange="uploadFont(event)"></label>
+    <label>🖼️ 插圖 <input type="file" id="img-input" accept="image/*" onchange="insertInlineImage(event)"></label>
+  </div>
+
+  <!-- 📖 看日記 -->
+  <div id="page-view" class="page active">
+    <div class="view-card" id="view-card-content"></div>
+    <div class="row" style="margin-top: 15px;" id="view-actions">
+      <button class="btn" style="flex: 2;" onclick="switchToEditMode()">✏️ 編輯這篇</button>
+      <button class="btn btn-danger" style="flex: 1;" onclick="deleteDiary()">🗑️ 刪除</button>
+    </div>
+  </div>
+
+  <!-- 📝 寫日記 -->
+  <div id="page-edit" class="page">
+    <div class="form-group row">
+      <input type="date" id="diary-date" style="flex: 2;">
+      <select id="diary-mood" style="flex: 1;">
+        <option value="😺">😺 開心</option>
+        <option value="😼">😼 驕傲</option>
+        <option value="😾">😾 生氣</option>
+        <option value="😿">😿 難過</option>
+        <option value="😹">😹 搞笑</option>
+        <option value="😴">😴 想睡</option>
+        <option value="🥳">🥳 慶祝</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <input type="text" id="diary-title" placeholder="輸入日記標題...">
+    </div>
+
+    <div class="form-group">
+      <div id="diary-content" class="editor" contenteditable="true" placeholder="開始寫下今天的故事吧..."></div>
+    </div>
+
+    <button class="btn" style="width: 100%;" onclick="saveDiary()">儲存日記 📝</button>
+  </div>
+
+  <!-- 📅 月曆 -->
+  <div id="page-calendar" class="page">
+    <div class="calendar-header">
+      <button class="calendar-nav-btn" onclick="changeMonth(-1)">❮</button>
+      <div class="calendar-title" id="calendar-month-title">2026年 9月</div>
+      <button class="calendar-nav-btn" onclick="changeMonth(1)">❯</button>
+    </div>
+
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+</div>
+
+<div class="navbar">
+  <button class="nav-item active" id="nav-view" onclick="switchTab('view')">
+    <span class="icon">📖</span>看日記
+  </button>
+  <button class="nav-item" id="nav-edit" onclick="switchTab('edit')">
+    <span class="icon">📝</span>寫日記
+  </button>
+  <button class="nav-item" id="nav-calendar" onclick="switchTab('calendar')">
+    <span class="icon">📅</span>月曆
+  </button>
+</div>
+
+<script>
+  let diaryStore = JSON.parse(localStorage.getItem('my_diaries_v2') || '{}');
+  let currentViewDate = new Date();
+  let selectedDateStr = formatDate(new Date());
+
+  window.onload = () => {
+    const customBg = localStorage.getItem('custom_bg');
+    if (customBg) {
+      document.body.style.backgroundImage = `url(${customBg})`;
+      document.body.classList.remove('default-bg');
+    }
+
+    const customFont = localStorage.getItem('custom_font');
+    if (customFont) {
+      applyFont(customFont);
+    }
+
+    document.getElementById('diary-date').value = selectedDateStr;
+    
+    document.getElementById('diary-date').addEventListener('change', (e) => {
+      if (e.target.value) {
+        selectedDateStr = e.target.value;
+        const [year, month] = selectedDateStr.split('-');
+        currentViewDate.setFullYear(parseInt(year), parseInt(month) - 1, 1);
+        renderViewPage();
+      }
+    });
+
+    renderViewPage();
+  };
+
+  function formatDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    document.getElementById(`page-${tabName}`).classList.add('active');
+    document.getElementById(`nav-${tabName}`).classList.add('active');
+
+    if (tabName === 'view') {
+      renderViewPage();
+    } else if (tabName === 'edit') {
+      loadEditFormData();
+    } else if (tabName === 'calendar') {
+      renderCalendar();
+    }
+  }
+
+  function renderViewPage() {
+    const card = document.getElementById('view-card-content');
+    const actions = document.getElementById('view-actions');
+    const entry = diaryStore[selectedDateStr];
+
+    if (entry) {
+      card.innerHTML = `
+        <div class="view-header">
+          <span class="view-date">📅 ${selectedDateStr}</span>
+          <span class="view-mood">${entry.mood}</span>
+        </div>
+        <div class="view-title">${entry.title}</div>
+        <div class="view-body">${entry.content}</div>
+      `;
+      actions.style.display = 'flex';
+    } else {
+      card.innerHTML = `
+        <div class="view-header">
+          <span class="view-date">📅 ${selectedDateStr}</span>
+        </div>
+        <div class="empty-msg">這天還沒有寫日記喔... 🌸<br><br>點擊下方「寫日記」開始記錄吧！</div>
+      `;
+      actions.style.display = 'none';
+    }
+  }
+
+  function switchToEditMode() {
+    switchTab('edit');
+  }
+
+  function loadEditFormData() {
+    document.getElementById('diary-date').value = selectedDateStr;
+    const entry = diaryStore[selectedDateStr];
+
+    if (entry) {
+      document.getElementById('diary-mood').value = entry.mood;
+      document.getElementById('diary-title').value = entry.title;
+      document.getElementById('diary-content').innerHTML = entry.content;
+    } else {
+      document.getElementById('diary-mood').value = '😺';
+      document.getElementById('diary-title').value = '';
+      document.getElementById('diary-content').innerHTML = '';
+    }
+  }
+
+  function saveDiary() {
+    const dateStr = document.getElementById('diary-date').value;
+    const mood = document.getElementById('diary-mood').value;
+    const title = document.getElementById('diary-title').value.trim();
+    const content = document.getElementById('diary-content').innerHTML.trim();
+
+    if (!dateStr) {
+      alert('請選擇日期！');
+      return;
+    }
+
+    if (!title && !content) {
+      alert('請輸入標題或日記內容！');
+      return;
+    }
+
+    selectedDateStr = dateStr;
+    const backup = JSON.stringify(diaryStore);
+
+    try {
+      diaryStore[selectedDateStr] = { mood, title, content };
+      localStorage.setItem('my_diaries_v2', JSON.stringify(diaryStore));
+      alert('日記儲存成功！🌸');
+      switchTab('view');
+    } catch (e) {
+      diaryStore = JSON.parse(backup);
+      alert('⚠️ 儲存失敗！圖片容量太大了，請試著減少內文圖片數量或插入小一點的照片喔！');
+    }
+  }
+
+  function deleteDiary() {
+    if (confirm(`確定要刪除 ${selectedDateStr} 的日記嗎？`)) {
+      delete diaryStore[selectedDateStr];
+      localStorage.setItem('my_diaries_v2', JSON.stringify(diaryStore));
+      renderViewPage();
+    }
+  }
+
+  function renderCalendar() {
+    const year = currentViewDate.getFullYear();
+    const month = currentViewDate.getMonth();
+
+    document.getElementById('calendar-month-title').innerText = `${year}年 ${month + 1}月`;
+
+    const grid = document.getElementById('calendar-grid');
+    grid.innerHTML = '';
+
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    weekdays.forEach(day => {
+      const el = document.createElement('div');
+      el.className = 'weekday-header';
+      el.innerText = day;
+      grid.appendChild(el);
+    });
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const todayStr = formatDate(new Date());
+
+    for (let i = 0; i < firstDayIndex; i++) {
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'calendar-day empty';
+      grid.appendChild(emptyCell);
+    }
+
+    for (let day = 1; day <= totalDays; day++) {
+      const mStr = String(month + 1).padStart(2, '0');
+      const dStr = String(day).padStart(2, '0');
+      const dateKey = `${year}-${mStr}-${dStr}`;
+
+      const cell = document.createElement('div');
+      cell.className = 'calendar-day';
+      
+      if (dateKey === todayStr) cell.classList.add('today');
+      if (dateKey === selectedDateStr) cell.classList.add('selected');
+
+      const dayNum = document.createElement('span');
+      dayNum.className = 'day-number';
+      dayNum.innerText = day;
+      cell.appendChild(dayNum);
+
+      if (diaryStore[dateKey]) {
+        const moodIcon = document.createElement('span');
+        moodIcon.className = 'day-mood';
+        moodIcon.innerText = diaryStore[dateKey].mood;
+        cell.appendChild(moodIcon);
+      } else {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'day-mood';
+        placeholder.innerText = '';
+        cell.appendChild(placeholder);
+      }
+
+      cell.onclick = () => {
+        selectedDateStr = dateKey;
+        switchTab('view');
+      };
+
+      grid.appendChild(cell);
+    }
+  }
+
+  function changeMonth(offset) {
+    currentViewDate.setMonth(currentViewDate.getMonth() + offset);
+    renderCalendar();
+  }
+
+  function insertInlineImage(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxW = 600;
+          let w = img.width;
+          let h = img.height;
+
+          if (w > maxW) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          }
+
+          canvas.width = w;
+          canvas.height = h;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+
+          const imgHTML = `<img src="${compressedBase64}">`;
+          const editor = document.getElementById('diary-content');
+          editor.focus();
+          document.execCommand('insertHTML', false, imgHTML);
+
+          document.getElementById('img-input').value = '';
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function uploadBackground(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const bgData = event.target.result;
+        document.body.style.backgroundImage = `url(${bgData})`;
+        document.body.classList.remove('default-bg');
+        localStorage.setItem('custom_bg', bgData);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function uploadFont(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const fontData = event.target.result;
+        applyFont(fontData);
+        localStorage.setItem('custom_font', fontData);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function applyFont(fontBase64) {
+    const newFont = new FontFace('CustomFont', `url(${fontBase64})`);
+    newFont.load().then(font => {
+      document.fonts.add(font);
+    }).catch(err => alert('字體載入失敗！'));
+  }
+
+  function exportData() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(diaryStore));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `my_diary_backup_${formatDate(new Date())}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
+  function importData(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const importedData = JSON.parse(event.target.result);
+          diaryStore = { ...diaryStore, ...importedData };
+          localStorage.setItem('my_diaries_v2', JSON.stringify(diaryStore));
+          renderViewPage();
+          alert('日記匯入成功！🎉');
+        } catch (err) {
+          alert('匯入失敗：請確認檔案為 JSON 格式。');
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+</script>
+
+</body>
+</html>
