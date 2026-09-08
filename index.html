@@ -16,6 +16,8 @@
 
   <!-- Matter.js 物理引擎 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <!-- html2pdf.js PDF 匯出套件 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <style>
     @font-face {
@@ -83,7 +85,7 @@
       color: var(--primary-dark);
     }
 
-    .btn-group { display: flex; gap: 4px; }
+    .btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
 
     .control-panel {
       background: #ffffff;
@@ -219,20 +221,8 @@
     .calendar-day.selected { border: 2px solid var(--primary-dark); background: #fff0f5; }
     .calendar-day.today { font-weight: bold; color: var(--primary-dark); background: #fff8f9; }
     
-    .day-number {
-      font-size: 0.75rem;
-      align-self: flex-start;
-      margin-left: 2px;
-    }
-
-    .day-mood {
-      font-size: 1.5rem;
-      line-height: 1;
-      margin: auto 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    .day-number { font-size: 0.75rem; align-self: flex-start; margin-left: 2px; }
+    .day-mood { font-size: 1.5rem; line-height: 1; margin: auto 0; display: flex; align-items: center; justify-content: center; }
 
     /* 🏺 心情瓶與圓餅圖樣式 */
     .jar-wrapper {
@@ -258,10 +248,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.15);
     }
 
-    #jar-canvas {
-      width: 100%;
-      height: 100%;
-    }
+    #jar-canvas { width: 100%; height: 100%; }
 
     .stats-card {
       background: #fff;
@@ -271,13 +258,7 @@
       text-align: center;
     }
 
-    .chart-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      margin-top: 15px;
-    }
+    .chart-container { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 15px; }
 
     .legend-list {
       display: flex;
@@ -297,12 +278,7 @@
       border-radius: 10px;
     }
 
-    .color-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-block;
-    }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 
     .btn {
       background: var(--primary-color);
@@ -327,6 +303,7 @@
       height: 60px;
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(10px);
+
       border-top: 2px solid #ffe4e1;
       display: flex;
       justify-content: space-around;
@@ -348,6 +325,78 @@
 
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
+
+    /* 📄 PDF 隱藏導出模板專用樣式 */
+    #pdf-export-container {
+      display: none;
+      background: #fff0f5;
+      padding: 20px;
+      font-family: 'CustomFont', sans-serif;
+    }
+
+    .pdf-page-card {
+      background: #ffffff;
+      border: 3px solid #ffb6c1;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      page-break-after: always;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    .pdf-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px dashed #ffb6c1;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      color: #888;
+    }
+
+    .pdf-title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ff69b4;
+      margin-bottom: 15px;
+    }
+
+    .pdf-body {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .pdf-body img {
+      max-width: 80%;
+      margin: 15px auto;
+      display: block;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      padding: 8px;
+      background: #fff;
+    }
+
+    /* Modal 彈出視窗 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 350px;
+      text-align: center;
+      border: 3px solid #ffb6c1;
+    }
   </style>
 </head>
 <body class="default-bg">
@@ -356,7 +405,8 @@
   <div class="header">
     <h1>🐾 魔法可愛日誌</h1>
     <div class="btn-group">
-      <button class="btn btn-secondary" onclick="exportData()">匯出</button>
+      <button class="btn btn-secondary" onclick="exportData()">匯出 JSON</button>
+      <button class="btn btn-secondary" onclick="openPdfModal()">📚 批次 PDF</button>
       <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">匯入</button>
       <input type="file" id="import-file" accept=".json" onchange="importData(event)">
     </div>
@@ -372,8 +422,9 @@
   <div id="page-view" class="page active">
     <div class="view-card" id="view-card-content"></div>
     <div class="row" style="margin-top: 15px;" id="view-actions">
-      <button class="btn" style="flex: 2;" onclick="switchToEditMode()">✏️ 編輯這篇</button>
-      <button class="btn btn-danger" style="flex: 1;" onclick="deleteDiary()">🗑️ 刪除</button>
+      <button class="btn" style="flex: 2;" onclick="switchToEditMode()">✏️ 編輯</button>
+      <button class="btn btn-secondary" style="flex: 2; background: #ffb6c1; color: white;" onclick="exportSinglePDF()">📄 匯出 PDF</button>
+      <button class="btn btn-danger" style="flex: 1;" onclick="deleteDiary()">🗑️</button>
     </div>
   </div>
 
@@ -438,6 +489,21 @@
   </div>
 </div>
 
+<!-- 📄 批次匯出 PDF 的選單彈窗 -->
+<div class="modal" id="pdf-modal">
+  <div class="modal-content">
+    <h3 style="color: var(--primary-dark); margin-top: 0;">📚 匯出可愛日記 PDF</h3>
+    <p style="font-size: 0.9rem; color: #666;">請選擇要匯出的範圍：</p>
+    
+    <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportBatchPDF('month')">🗓️ 僅匯出本月日記</button>
+    <button class="btn" style="width: 100%; background: #ff69b4; margin-bottom: 10px;" onclick="exportBatchPDF('all')">📖 匯出全部日記 (整本)</button>
+    <button class="btn btn-secondary" style="width: 100%;" onclick="closePdfModal()">取消</button>
+  </div>
+</div>
+
+<!-- 隱藏的 PDF 渲染緩衝區 -->
+<div id="pdf-export-container"></div>
+
 <div class="navbar">
   <button class="nav-item active" id="nav-view" onclick="switchTab('view')">
     <span class="icon">📖</span>看日記
@@ -458,18 +524,11 @@
   let currentViewDate = new Date();
   let selectedDateStr = formatDate(new Date());
 
-  // Matter.js 物理引擎變數
   let engine, render, runner;
 
   const moodColors = {
-    '😺': '#FFB6C1', // 開心 - 粉紅
-    '😻': '#FF69B4', // 愛心 - 桃紅
-    '😼': '#FFD700', // 驕傲 - 金黃
-    '😾': '#FF6B6B', // 生氣 - 紅色
-    '😿': '#87CEFA', // 難過 - 天藍
-    '😹': '#FFA500', // 搞笑 - 橘色
-    '😴': '#DDA0DD', // 想睡 - 紫色
-    '🥳': '#98FB98'  // 慶祝 - 淺綠
+    '😺': '#FFB6C1', '😻': '#FF69B4', '😼': '#FFD700', '😾': '#FF6B6B',
+    '😿': '#87CEFA', '😹': '#FFA500', '😴': '#DDA0DD', '🥳': '#98FB98'
   };
 
   window.onload = () => {
@@ -480,12 +539,9 @@
     }
 
     const customFont = localStorage.getItem('custom_font');
-    if (customFont) {
-      applyFont(customFont);
-    }
+    if (customFont) applyFont(customFont);
 
     document.getElementById('diary-date').value = selectedDateStr;
-    
     document.getElementById('diary-date').addEventListener('change', (e) => {
       if (e.target.value) {
         selectedDateStr = e.target.value;
@@ -512,15 +568,10 @@
     document.getElementById(`page-${tabName}`).classList.add('active');
     document.getElementById(`nav-${tabName}`).classList.add('active');
 
-    if (tabName === 'view') {
-      renderViewPage();
-    } else if (tabName === 'edit') {
-      loadEditFormData();
-    } else if (tabName === 'calendar') {
-      renderCalendar();
-    } else if (tabName === 'jar') {
-      renderJarPage();
-    }
+    if (tabName === 'view') renderViewPage();
+    else if (tabName === 'edit') loadEditFormData();
+    else if (tabName === 'calendar') renderCalendar();
+    else if (tabName === 'jar') renderJarPage();
   }
 
   function renderViewPage() {
@@ -549,9 +600,7 @@
     }
   }
 
-  function switchToEditMode() {
-    switchTab('edit');
-  }
+  function switchToEditMode() { switchTab('edit'); }
 
   function loadEditFormData() {
     document.getElementById('diary-date').value = selectedDateStr;
@@ -574,13 +623,8 @@
     const title = document.getElementById('diary-title').value.trim();
     const content = document.getElementById('diary-content').innerHTML.trim();
 
-    if (!dateStr) {
-      alert('請選擇日期！');
-      return;
-    }
-
-    if (!title && !content) {
-      alert('請輸入標題或日記內容！');
+    if (!dateStr || (!title && !content)) {
+      alert('請填寫完整資訊！');
       return;
     }
 
@@ -594,7 +638,7 @@
       switchTab('view');
     } catch (e) {
       diaryStore = JSON.parse(backup);
-      alert('⚠️ 儲存失敗！圖片容量太大了，請試著減少內文圖片數量或插入小一點的照片喔！');
+      alert('⚠️ 儲存失敗！圖片容量過大，請調整照片尺寸喔！');
     }
   }
 
@@ -609,14 +653,12 @@
   function renderCalendar() {
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
-
     document.getElementById('calendar-month-title').innerText = `${year}年 ${month + 1}月`;
 
     const grid = document.getElementById('calendar-grid');
     grid.innerHTML = '';
 
-    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-    weekdays.forEach(day => {
+    ['日', '一', '二', '三', '四', '五', '六'].forEach(day => {
       const el = document.createElement('div');
       el.className = 'weekday-header';
       el.innerText = day;
@@ -634,13 +676,9 @@
     }
 
     for (let day = 1; day <= totalDays; day++) {
-      const mStr = String(month + 1).padStart(2, '0');
-      const dStr = String(day).padStart(2, '0');
-      const dateKey = `${year}-${mStr}-${dStr}`;
-
+      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const cell = document.createElement('div');
       cell.className = 'calendar-day';
-      
       if (dateKey === todayStr) cell.classList.add('today');
       if (dateKey === selectedDateStr) cell.classList.add('selected');
 
@@ -656,11 +694,7 @@
         cell.appendChild(moodIcon);
       }
 
-      cell.onclick = () => {
-        selectedDateStr = dateKey;
-        switchTab('view');
-      };
-
+      cell.onclick = () => { selectedDateStr = dateKey; switchTab('view'); };
       grid.appendChild(cell);
     }
   }
@@ -670,7 +704,80 @@
     renderCalendar();
   }
 
-  /* 🏺 心情瓶與高清晰度 Retina Canvas 邏輯 */
+  /* 📄 PDF 匯出功能邏輯 */
+  function exportSinglePDF() {
+    const entry = diaryStore[selectedDateStr];
+    if (!entry) return alert('這天沒有日記可以匯出喔！');
+
+    const pdfContainer = document.getElementById('pdf-export-container');
+    pdfContainer.innerHTML = buildPdfCardHtml(selectedDateStr, entry);
+
+    generatePdfFromElement(pdfContainer, `可愛日記_${selectedDateStr}.pdf`);
+  }
+
+  function openPdfModal() {
+    document.getElementById('pdf-modal').style.display = 'flex';
+  }
+
+  function closePdfModal() {
+    document.getElementById('pdf-modal').style.display = 'none';
+  }
+
+  function exportBatchPDF(type) {
+    closePdfModal();
+    const pdfContainer = document.getElementById('pdf-export-container');
+    pdfContainer.innerHTML = '';
+
+    const sortedDates = Object.keys(diaryStore).sort();
+    let filterDates = sortedDates;
+
+    if (type === 'month') {
+      const yearMonth = selectedDateStr.substring(0, 7);
+      filterDates = sortedDates.filter(d => d.startsWith(yearMonth));
+    }
+
+    if (filterDates.length === 0) {
+      return alert('指定範圍內找不到任何日記喔！');
+    }
+
+    filterDates.forEach(dateStr => {
+      pdfContainer.innerHTML += buildPdfCardHtml(dateStr, diaryStore[dateStr]);
+    });
+
+    const filename = type === 'month' ? `可愛日記_${selectedDateStr.substring(0, 7)}.pdf` : `我的可愛日記全集.pdf`;
+    generatePdfFromElement(pdfContainer, filename);
+  }
+
+  function buildPdfCardHtml(dateStr, entry) {
+    return `
+      <div class="pdf-page-card">
+        <div class="pdf-header">
+          <span>📅 ${dateStr}</span>
+          <span>${entry.mood}</span>
+        </div>
+        <div class="pdf-title">${entry.title || '無標題'}</div>
+        <div class="pdf-body">${entry.content}</div>
+      </div>
+    `;
+  }
+
+  function generatePdfFromElement(element, filename) {
+    element.style.display = 'block';
+
+    const opt = {
+      margin:       10,
+      filename:     filename,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      element.style.display = 'none';
+    });
+  }
+
+  /* 🏺 心情瓶與繪圖邏輯 */
   function renderJarPage() {
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
@@ -699,7 +806,7 @@
 
   function initJarPhysics(moodList) {
     const canvas = document.getElementById('jar-canvas');
-    const dpr = window.devicePixelRatio || 2; // 取得裝置像素比，提升高 DPI 清晰度
+    const dpr = window.devicePixelRatio || 2;
 
     if (engine) {
       Matter.Engine.clear(engine);
@@ -719,7 +826,7 @@
         height: 320,
         wireframes: false,
         background: 'transparent',
-        pixelRatio: dpr // 開啟高清點對點渲染
+        pixelRatio: dpr
       }
     });
 
@@ -733,7 +840,6 @@
 
     Composite.add(engine.world, [ground, leftWall, rightWall]);
 
-    // 縮小球球半徑（從 22 縮小至 18），提高瓶子容量與可緻度
     const ballRadius = 18;
     const balls = moodList.map((mood, idx) => {
       const x = 50 + (idx * 25) % (width - 100);
@@ -754,7 +860,6 @@
 
     Composite.add(engine.world, balls);
 
-    // 高解析度繪製貓咪表情
     Matter.Events.on(render, 'afterRender', () => {
       const ctx = render.context;
       ctx.font = '20px "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
@@ -772,7 +877,6 @@
     });
 
     const mouse = Mouse.create(render.canvas);
-    // 適應高解析度滑鼠/觸控映射
     mouse.pixelRatio = dpr;
 
     const mouseConstraint = MouseConstraint.create(engine, {
@@ -821,9 +925,7 @@
     }
 
     let startAngle = -Math.PI / 2;
-    const centerX = 180;
-    const centerY = 180;
-    const radius = 150;
+    const centerX = 180, centerY = 180, radius = 150;
 
     Object.keys(moodCounts).forEach(mood => {
       const count = moodCounts[mood];
@@ -862,22 +964,18 @@
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const maxW = 600;
-          let w = img.width;
-          let h = img.height;
+          let w = img.width, h = img.height;
 
           if (w > maxW) {
             h = Math.round((h * maxW) / w);
             w = maxW;
           }
 
-          canvas.width = w;
-          canvas.height = h;
-
+          canvas.width = w; canvas.height = h;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
-
           const imgHTML = `<img src="${compressedBase64}">`;
           const editor = document.getElementById('diary-content');
           editor.focus();
@@ -919,9 +1017,7 @@
 
   function applyFont(fontBase64) {
     const newFont = new FontFace('CustomFont', `url(${fontBase64})`);
-    newFont.load().then(font => {
-      document.fonts.add(font);
-    }).catch(err => alert('字體載入失敗！'));
+    newFont.load().then(font => document.fonts.add(font)).catch(err => alert('字體載入失敗！'));
   }
 
   function exportData() {
