@@ -305,7 +305,7 @@
       backdrop-filter: blur(10px);
       border-top: 2px solid #ffe4e1;
       display: flex;
-      justify-content: space-around;
+      justify-around: space-around;
       align-items: center;
       z-index: 1000;
     }
@@ -325,11 +325,11 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 徹底解決多圖/長文裁切的樣式 */
+    /* 📄 PDF 防裁切核心重構 */
     #pdf-export-container {
       display: none;
       background: #fff0f5;
-      padding: 15px;
+      padding: 10px;
       font-family: 'CustomFont', sans-serif;
     }
 
@@ -338,7 +338,7 @@
       border: 3px solid #ffb6c1;
       border-radius: 15px;
       padding: 20px;
-      margin-bottom: 25px;
+      margin-bottom: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
 
@@ -350,8 +350,8 @@
       margin-bottom: 12px;
       font-size: 16px;
       color: #888;
-      page-break-after: avoid !important;
-      break-after: avoid !important;
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
     .pdf-title {
@@ -359,8 +359,8 @@
       font-weight: bold;
       color: #ff69b4;
       margin-bottom: 12px;
-      page-break-after: avoid !important;
-      break-after: avoid !important;
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
     .pdf-body {
@@ -370,25 +370,26 @@
       word-break: break-word;
     }
 
-    /* 多圖與段落防截斷核心設定 */
+    /* 強制文字段落與拍立得圖片各自作為「不可裁切」單位 */
     .pdf-body p, .pdf-body div {
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
 
     .pdf-body img {
-      max-width: 70% !important;
-      height: auto !important;
-      margin: 15px auto !important;
-      display: block !important;
-      background: #ffffff !important;
-      padding: 8px 8px 22px 8px !important;
-      border-radius: 4px !important;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
-      border: 1px solid #eaeaea !important;
-      /* 單張照片完整保護，不被水平剖半 */
+      max-width: 70%;
+      margin: 15px auto;
+      display: block;
+      background: #ffffff;
+      padding: 8px 8px 24px 8px;
+      border-radius: 4px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+      border: 1px solid #eaeaea;
+      /* 關鍵：整張拍立得照片絕對不能被裁切 */
       page-break-inside: avoid !important;
       break-inside: avoid !important;
+      page-break-before: auto;
+      page-break-after: auto;
     }
 
     /* Modal 彈出視窗 */
@@ -718,7 +719,7 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 匯出功能邏輯（長文與多圖智慧分頁） */
+  /* 📄 PDF 精準元件防裁切引擎 */
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
@@ -784,7 +785,7 @@
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true, logging: false },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'] } // 允許長卡片跨頁，但內部元素不剖半
+      pagebreak:    { mode: ['css', 'legacy'], avoid: ['img', 'p', '.pdf-header', '.pdf-title'] }
     };
 
     html2pdf().set(opt).from(element).save().then(() => {
