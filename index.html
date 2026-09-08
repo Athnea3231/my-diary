@@ -325,7 +325,7 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 防裁切與拍立得優化樣式 */
+    /* 📄 PDF 徹底解決多圖/長文裁切的樣式 */
     #pdf-export-container {
       display: none;
       background: #fff0f5;
@@ -339,9 +339,6 @@
       border-radius: 15px;
       padding: 20px;
       margin-bottom: 25px;
-      /* 防裁切關鍵設定 */
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
 
@@ -353,6 +350,8 @@
       margin-bottom: 12px;
       font-size: 16px;
       color: #888;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
     }
 
     .pdf-title {
@@ -360,6 +359,8 @@
       font-weight: bold;
       color: #ff69b4;
       margin-bottom: 12px;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
     }
 
     .pdf-body {
@@ -369,16 +370,23 @@
       word-break: break-word;
     }
 
-    /* 拍立得照片樣式保持（防止在 PDF 內跨頁被切） */
+    /* 多圖與段落防截斷核心設定 */
+    .pdf-body p, .pdf-body div {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
     .pdf-body img {
-      max-width: 75%;
-      margin: 12px auto;
-      display: block;
-      background: #ffffff;
-      padding: 8px 8px 22px 8px;
-      border-radius: 4px;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-      border: 1px solid #eaeaea;
+      max-width: 70% !important;
+      height: auto !important;
+      margin: 15px auto !important;
+      display: block !important;
+      background: #ffffff !important;
+      padding: 8px 8px 22px 8px !important;
+      border-radius: 4px !important;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+      border: 1px solid #eaeaea !important;
+      /* 單張照片完整保護，不被水平剖半 */
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
@@ -710,7 +718,7 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 匯出功能邏輯（升級防跨頁裁切） */
+  /* 📄 PDF 匯出功能邏輯（長文與多圖智慧分頁） */
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
@@ -771,12 +779,12 @@
     element.style.display = 'block';
 
     const opt = {
-      margin:       [10, 10, 10, 10],
+      margin:       [12, 10, 12, 10],
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true, logging: false },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } // 防裁切關鍵設定
+      pagebreak:    { mode: ['css', 'legacy'] } // 允許長卡片跨頁，但內部元素不剖半
     };
 
     html2pdf().set(opt).from(element).save().then(() => {
