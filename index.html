@@ -41,7 +41,7 @@
     body {
       margin: 0;
       padding: 12px 8px 70px 8px;
-      font-family: 'CustomFont', 'Comic Sans MS', 'Chalkboard SE', 'Microsoft JhengHei', sans-serif;
+      font-family: 'CustomFont', 'Comic Sans MS', 'Microsoft JhengHei', sans-serif;
       background-color: var(--bg-color);
       background-size: cover;
       background-position: center;
@@ -169,7 +169,7 @@
     .view-date { font-size: 1.1rem; color: #888; font-weight: bold; }
     .view-mood { font-size: 2rem; }
     .view-title { font-size: 1.5rem; font-weight: bold; color: var(--primary-dark); margin-bottom: 15px; }
-    .view-body { font-size: 18px; line-height: 1.7; word-break: break-word; }
+    .view-body { font-size: 18px; line-height: 1.8; word-break: break-word; }
     .empty-msg { text-align: center; color: #aaa; margin-top: 80px; font-size: 1.1rem; }
 
     .calendar-header {
@@ -305,7 +305,7 @@
       backdrop-filter: blur(10px);
       border-top: 2px solid #ffe4e1;
       display: flex;
-      justify-around: space-around;
+      justify-content: space-around;
       align-items: center;
       z-index: 1000;
     }
@@ -325,78 +325,56 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-/* 📄 PDF 防裁切與文字防重疊核心重構 */
-#pdf-export-container {
-  display: none;
-  background: #fff0f5;
-  padding: 10px;
-  font-family: 'CustomFont', sans-serif;
-}
+    /* 📄 PDF 防字體重疊與防裁切核心重構 */
+    #pdf-export-container {
+      display: none;
+      background: #fff0f5;
+      padding: 10px;
+      font-family: 'CustomFont', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+    }
 
-.pdf-page-card {
-  background: #ffffff;
-  border: 3px solid #ffb6c1;
-  border-radius: 15px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
+    .pdf-page-card {
+      background: #ffffff;
+      border: 3px solid #ffb6c1;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
 
-.pdf-header {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 2px dashed #ffb6c1;
-  padding-bottom: 8px;
-  margin-bottom: 15px;
-  font-size: 16px;
-  color: #888;
-  page-break-after: avoid;
-  break-after: avoid;
-}
+    .pdf-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px dashed #ffb6c1;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      color: #888;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
 
-.pdf-title {
-  font-size: 22px;
-  font-weight: bold;
-  color: #ff69b4;
-  margin-bottom: 15px;
-  line-height: 1.5; /* 避免標題與內文擠壓 */
-  page-break-after: avoid;
-  break-after: avoid;
-}
+    .pdf-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ff69b4;
+      margin-bottom: 12px;
+      line-height: 1.5;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
 
-.pdf-body {
-  font-size: 16px;
-  line-height: 1.8 !important; /* 關鍵：強制加大行高，避免上下文字重疊 */
-  color: #333;
-  word-break: break-word;
-  letter-spacing: 0.5px; /* 加大字距，防止水平重疊 */
-}
+    .pdf-body {
+      font-size: 15px;
+      /* 關鍵：徹底解決文字重疊的行高與字距設定 */
+      line-height: 1.85 !important;
+      letter-spacing: 0.5px;
+      color: #333;
+      word-break: break-word;
+    }
 
-/* 強制文字段落獨立且保有上下外邊距 */
-.pdf-body p, .pdf-body div {
-  margin-top: 0;
-  margin-bottom: 12px !important; /* 強制段落間距 */
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
-
-.pdf-body img {
-  max-width: 70%;
-  margin: 15px auto;
-  display: block;
-  background: #ffffff;
-  padding: 8px 8px 24px 8px;
-  border-radius: 4px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-  border: 1px solid #eaeaea;
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-  page-break-before: auto;
-  page-break-after: auto;
-}
-
-    /* 強制文字段落與拍立得圖片各自作為「不可裁切」單位 */
     .pdf-body p, .pdf-body div {
+      margin-bottom: 8px;
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
@@ -410,11 +388,8 @@
       border-radius: 4px;
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
       border: 1px solid #eaeaea;
-      /* 關鍵：整張拍立得照片絕對不能被裁切 */
       page-break-inside: avoid !important;
       break-inside: avoid !important;
-      page-break-before: auto;
-      page-break-after: auto;
     }
 
     /* Modal 彈出視窗 */
@@ -744,7 +719,7 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 精準元件防裁切引擎 */
+  /* 📄 PDF 精準防重疊與防裁切引擎 */
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
@@ -801,30 +776,25 @@
     `;
   }
 
-function generatePdfFromElement(element, filename) {
-  element.style.display = 'block';
+  function generatePdfFromElement(element, filename) {
+    element.style.display = 'block';
 
-  // 等待系統所有自訂字體完全載入後才開始繪製，防止字體重疊
-  document.fonts.ready.then(() => {
     const opt = {
       margin:       [12, 10, 12, 10],
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        letterRendering: true // 關鍵：開啟文字精密渲染，防止文字黏在一起
-      },
+      html2canvas:  { scale: 2, useCORS: true, logging: false, letterRendering: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak:    { mode: ['css', 'legacy'], avoid: ['img', 'p', '.pdf-header', '.pdf-title'] }
     };
 
-    html2pdf().set(opt).from(element).save().then(() => {
-      element.style.display = 'none';
-    });
-  });
-}
+    // 關鍵：延遲 200ms 再截圖渲染，確保文字尺寸計算精準防重疊
+    setTimeout(() => {
+      html2pdf().set(opt).from(element).save().then(() => {
+        element.style.display = 'none';
+      });
+    }, 200);
+  }
 
   /* 🏺 心情瓶與繪圖邏輯 */
   function renderJarPage() {
