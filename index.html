@@ -137,6 +137,7 @@
       line-height: 1.6;
     }
 
+    /* 網頁上與看日記的拍立得照片風格 */
     .editor img, .view-body img {
       max-width: 85%;
       margin: 12px auto;
@@ -326,11 +327,11 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 導出防跨頁裁切防範樣式 */
+    /* 📄 PDF 防裁切優化樣式 */
     #pdf-export-container {
       display: none;
       background: #fff0f5;
-      padding: 20px;
+      padding: 15px;
       font-family: 'CustomFont', sans-serif;
     }
 
@@ -340,10 +341,11 @@
       border-radius: 15px;
       padding: 20px;
       margin-bottom: 25px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
       page-break-after: always;
       break-after: page;
-      break-inside: avoid; /* 防卡片被裁切 */
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .pdf-header {
@@ -361,32 +363,37 @@
       font-weight: bold;
       color: #ff69b4;
       margin-bottom: 15px;
-      break-after: avoid; /* 防止標題跟內文分開 */
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .pdf-body {
       font-size: 16px;
-      line-height: 1.6;
+      line-height: 1.7;
       color: #333;
     }
 
+    /* 防止段落被跨頁裁切 */
     .pdf-body p, .pdf-body div {
-      break-inside: avoid; /* 防止文字段落被從中間裁切 */
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
-    /* 📷 PDF 內部的拍立得相片風格防裁切 */
+    /* PDF 專用拍立得相片（保留拍立得質感，同時防裁切） */
     .pdf-body img {
       max-width: 80%;
-      margin: 15px auto;
+      margin: 18px auto;
       display: block;
       background: #ffffff;
-      padding: 10px 10px 28px 10px; /* 保留拍立得下方留白 */
+      padding: 10px 10px 28px 10px;
       border-radius: 4px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
       border: 1px solid #eaeaea;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
       transform: rotate(-1deg);
-      break-inside: avoid; /* 防止拍立得照片跨頁截斷 */
-      page-break-inside: avoid;
+      
+      /* 防裁切核心 */
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
     }
 
     /* Modal 彈出視窗 */
@@ -417,8 +424,8 @@
   <div class="header">
     <h1>🐾 魔法可愛日誌</h1>
     <div class="btn-group">
-      <button class="btn btn-secondary" onclick="exportData()">匯出</button>
-      <button class="btn btn-secondary" onclick="openPdfModal()">批次 PDF</button>
+      <button class="btn btn-secondary" onclick="exportData()">匯出 JSON</button>
+      <button class="btn btn-secondary" onclick="openPdfModal()">📚 批次 PDF</button>
       <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">匯入</button>
       <input type="file" id="import-file" accept=".json" onchange="importData(event)">
     </div>
@@ -716,7 +723,7 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 匯出功能邏輯（升級防裁切版） */
+  /* 📄 PDF 防裁切導出邏輯 */
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
@@ -777,12 +784,13 @@
     element.style.display = 'block';
 
     const opt = {
-      margin:       10,
+      margin:       [10, 10, 10, 10], // 上右下左邊界
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
+      html2canvas:  { scale: 2, useCORS: true, logging: false },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'] } // 智慧防拆切演算法
+      // 精準防裁切控制
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     html2pdf().set(opt).from(element).save().then(() => {
