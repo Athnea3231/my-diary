@@ -326,7 +326,7 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 隱藏導出模板專用樣式 */
+    /* 📄 PDF 隱藏導出模板專用樣式（防跨頁裁切升級） */
     #pdf-export-container {
       display: none;
       background: #fff0f5;
@@ -340,11 +340,9 @@
       border-radius: 15px;
       padding: 20px;
       margin-bottom: 20px;
+      page-break-inside: avoid;
+      break-inside: avoid;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-      
-      /* 防裁切設定：避免卡片內部被硬拆到兩頁 */
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
     }
 
     .pdf-header {
@@ -370,20 +368,17 @@
       color: #333;
     }
 
-    /* 文字段落與圖片防裁切 */
-    .pdf-body p, .pdf-body div, .pdf-body img {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-    }
-
     .pdf-body img {
-      max-width: 80%;
+      max-width: 100%;
+      height: auto;
       margin: 15px auto;
       display: block;
       border-radius: 8px;
       border: 1px solid #ddd;
       padding: 8px;
       background: #fff;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
 
     /* Modal 彈出視窗 */
@@ -778,8 +773,7 @@
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } // 防跨頁裁切核心設定
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(element).save().then(() => {
