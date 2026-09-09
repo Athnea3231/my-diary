@@ -224,7 +224,6 @@
     .day-number { font-size: 0.75rem; align-self: flex-start; margin-left: 2px; }
     .day-mood { font-size: 1.5rem; line-height: 1; margin: auto 0; display: flex; align-items: center; justify-content: center; }
 
-    /* 🏺 心情瓶與圓餅圖樣式 */
     .jar-wrapper {
       position: relative;
       width: 260px;
@@ -325,11 +324,14 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 防字體重疊與防裁切核心重構 */
+    /* 📄 修復手機端 PDF 渲染容器 (離屏繪製避開 display:none 陷阱) */
     #pdf-export-container {
-      display: none;
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      width: 750px; /* 固定寬度確保手機端計算精準 */
       background: #fff0f5;
-      padding: 10px;
+      padding: 15px;
       font-family: 'CustomFont', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
     }
 
@@ -366,7 +368,6 @@
 
     .pdf-body {
       font-size: 15px;
-      /* 關鍵：徹底解決文字重疊的行高與字距設定 */
       line-height: 1.85 !important;
       letter-spacing: 0.5px;
       color: #333;
@@ -392,7 +393,6 @@
       break-inside: avoid !important;
     }
 
-    /* Modal 彈出視窗 */
     .modal {
       display: none;
       position: fixed;
@@ -504,7 +504,6 @@
   </div>
 </div>
 
-<!-- 📄 批次匯出 PDF 的選單彈窗 -->
 <div class="modal" id="pdf-modal">
   <div class="modal-content">
     <h3 style="color: var(--primary-dark); margin-top: 0;">📚 匯出可愛日記 PDF</h3>
@@ -516,7 +515,7 @@
   </div>
 </div>
 
-<!-- 隱藏的 PDF 渲染緩衝區 -->
+<!-- 離屏 PDF 渲染容器 -->
 <div id="pdf-export-container"></div>
 
 <div class="navbar">
@@ -719,15 +718,15 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 精準防重疊與防裁切引擎 */
-  function exportSinglePDF() {
+  /* 📄 手機端防空白與防爆記憶體的核心 PDF 匯出邏輯 */
+  async function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
 
     const pdfContainer = document.getElementById('pdf-export-container');
     pdfContainer.innerHTML = buildPdfCardHtml(selectedDateStr, entry);
 
-    generatePdfFromElement(pdfContainer, `可愛日記_${selectedDateStr}.pdf`);
+    await generatePdfFromElement(pdfContainer, `可愛日記_${selectedDateStr}.pdf`);
   }
 
   function openPdfModal() {
@@ -738,7 +737,7 @@
     document.getElementById('pdf-modal').style.display = 'none';
   }
 
-  function exportBatchPDF(type) {
+  async function exportBatchPDF(type) {
     closePdfModal();
     const pdfContainer = document.getElementById('pdf-export-container');
     pdfContainer.innerHTML = '';
@@ -760,7 +759,7 @@
     });
 
     const filename = type === 'month' ? `可愛日記_${selectedDateStr.substring(0, 7)}.pdf` : `我的可愛日記全集.pdf`;
-    generatePdfFromElement(pdfContainer, filename);
+    await generatePdfFromElement(pdfContainer, filename);
   }
 
   function buildPdfCardHtml(dateStr, entry) {
@@ -776,24 +775,45 @@
     `;
   }
 
-function generatePdfFromElement(element, filename) {
-    element.style.display = 'block';
+  // 核心：針對行動裝置最佳化的 PDF 產生器
+  async function generatePdfFromElement(element, filename) {
+    // 1. 強制等待所有圖片加載完成
+    const imgs = Array.from(element.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+    }));
+
+    // 2. 判斷是否為手機端，進行相應的降低記憶體負擔（Scale 降至 1.5，避免 Canvas 崩潰）
+    const isMobile = window.innerWidth < 768;
+    const scaleValue = isMobile ? 1.5 : 2;
 
     const opt = {
-      margin:       [12, 10, 12, 10],
+      margin:       [10, 8, 10, 8],
       filename:     filename,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false, letterRendering: true },
+      image:        { type: 'jpeg', quality: 0.95 },
+      html2canvas:  { 
+        scale: scaleValue, 
+        useCORS: true, 
+        logging: false, 
+        letterRendering: true,
+        scrollX: 0,
+        scrollY: 0
+      },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak:    { mode: ['css', 'legacy'], avoid: ['img', 'p', '.pdf-header', '.pdf-title'] }
     };
 
-    // 關鍵：延遲 200ms 再截圖渲染，確保文字尺寸計算精準防重疊
-    setTimeout(() => {
-      html2pdf().set(opt).from(element).save().then(() => {
-        element.style.display = 'none';
-      });
-    }, 200);
+    // 3. 雙重 frame 等待，確保手機瀏覽器完成 DOM 繪製
+    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 300)));
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      alert('⚠️ PDF 匯出失敗，請再試一次或微調圖片大小。');
+    } finally {
+      element.innerHTML = ''; // 釋放記憶體
+    }
   }
 
   /* 🏺 心情瓶與繪圖邏輯 */
