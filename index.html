@@ -16,7 +16,7 @@
 
   <!-- Matter.js 物理引擎 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-  <!-- 僅保留最穩定的 jsPDF 核心庫 -->
+  <!-- jsPDF 核心庫 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
@@ -458,7 +458,7 @@
 <div class="modal" id="pdf-modal">
   <div class="modal-content">
     <h3 style="color: var(--primary-dark); margin-top: 0;">📚 匯出可愛日記 PDF</h3>
-    <p style="font-size: 0.85rem; color: #666; line-height: 1.4;">已改用原生 2D 畫布引擎，100% 穩定輸出無空白！</p>
+    <p style="font-size: 0.85rem; color: #666; line-height: 1.4;">支援多頁自動排版，長文章與相片自動獨立跳頁不被切掉！</p>
     
     <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportBatchPDF('month')">🗓️ 僅匯出本月日記</button>
     <button class="btn" style="width: 100%; background: #ff69b4; margin-bottom: 10px;" onclick="exportBatchPDF('all')">📖 匯出全部日記</button>
@@ -666,115 +666,141 @@
     renderCalendar();
   }
 
-  /* 🚀 純原生 Canvas 繪圖引擎 - 100% 防空白與防爆炸 🚀 */
+  /* 🚀 智慧分頁引擎：支援文字自動換行 + 圖片空間不夠時自動「跳頁」繪製 🚀 */
   async function generateNativePdfAsync(dateList, filename) {
     showLoading(true, `準備匯出 ${dateList.length} 篇日記...`, `0 / ${dateList.length}`);
 
     try {
-      const jspdfModule = window.jspdf || (window.jspdf ? window.jspdf.jsPDF : null);
-      if (!jspdfModule) {
-        alert('PDF 函式庫載入失敗，請確認網路連線是否正常！');
-        showLoading(false);
-        return;
-      }
-
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF('p', 'mm', 'a4');
+      let isFirstPageInPdf = true;
 
       for (let i = 0; i < dateList.length; i++) {
         const dateStr = dateList[i];
         const entry = diaryStore[dateStr];
 
-        showLoading(true, `正在繪製第 ${i + 1} / ${dateList.length} 頁...`, `${Math.round(((i + 1) / dateList.length) * 100)}%`);
+        showLoading(true, `正在繪製第 ${i + 1} / ${dateList.length} 篇日記...`, `${Math.round(((i + 1) / dateList.length) * 100)}%`);
 
-        // 建立原生 2D Canvas (寬 800px, 高 1131px 對應 A4 比例)
-        const canvas = document.createElement('canvas');
-        canvas.width = 800;
-        canvas.height = 1131;
-        const ctx = canvas.getContext('2d');
+        // 畫卡片背景底圖
+        function drawBackgroundCard(ctx, titleText, dateText, moodText) {
+          ctx.fillStyle = '#fff0f5';
+          ctx.fillRect(0, 0, 800, 1131);
 
-        // 1. 背景卡片
-        ctx.fillStyle = '#fff0f5';
-        ctx.fillRect(0, 0, 800, 1131);
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#ffb6c1';
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.roundRect(40, 40, 720, 1051, 20);
+          ctx.fill();
+          ctx.stroke();
 
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#ffb6c1';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.roundRect(40, 40, 720, 1051, 20);
-        ctx.fill();
-        ctx.stroke();
+          ctx.fillStyle = '#888888';
+          ctx.font = '28px "Microsoft JhengHei", sans-serif';
+          ctx.fillText(`📅 ${dateText}   ${moodText}`, 70, 100);
 
-        // 2. 標題區
-        ctx.fillStyle = '#888888';
-        ctx.font = '28px "Microsoft JhengHei", sans-serif';
-        ctx.fillText(`📅 ${dateStr}   ${entry.mood}`, 70, 100);
+          ctx.strokeStyle = '#ffb6c1';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.setLineDash([8, 8]);
+          ctx.moveTo(70, 125);
+          ctx.lineTo(730, 125);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        ctx.strokeStyle = '#ffb6c1';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.setLineDash([8, 8]);
-        ctx.moveTo(70, 125);
-        ctx.lineTo(730, 125);
-        ctx.stroke();
-        ctx.setLineDash([]);
+          if (titleText) {
+            ctx.fillStyle = '#ff69b4';
+            ctx.font = 'bold 36px "Microsoft JhengHei", sans-serif';
+            ctx.fillText(titleText, 70, 180);
+          }
+        }
 
-        ctx.fillStyle = '#ff69b4';
-        ctx.font = 'bold 36px "Microsoft JhengHei", sans-serif';
-        ctx.fillText(entry.title || '無標題', 70, 180);
+        let canvas = document.createElement('canvas');
+        canvas.width = 800; canvas.height = 1131;
+        let ctx = canvas.getContext('2d');
 
-        // 3. 純文字解析與簡單排版
+        drawBackgroundCard(ctx, entry.title || '無標題', dateStr, entry.mood);
+
+        // 解析內文與圖片
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = entry.content;
         
-        // 抓取內文圖片 Base64
         const imgElements = tempDiv.getElementsByTagName('img');
         let imageSrc = null;
-        if (imgElements.length > 0) {
-          imageSrc = imgElements[0].src;
-        }
+        if (imgElements.length > 0) imageSrc = imgElements[0].src;
 
         const cleanText = tempDiv.innerText || tempDiv.textContent || '';
-        
+
         ctx.fillStyle = '#333333';
         ctx.font = '24px "Microsoft JhengHei", sans-serif';
-        
-        // 自動換行算法
+
         let curY = 240;
         const maxW = 660;
         const lineHeight = 38;
         let line = '';
 
+        // 繪製文字，如果超過 950px 就自動生成新畫布
         for (let n = 0; n < cleanText.length; n++) {
           const testLine = line + cleanText[n];
-          const metrics = ctx.measureText(testLine);
-          if (metrics.width > maxW && n > 0) {
+          if (ctx.measureText(testLine).width > maxW && n > 0) {
             ctx.fillText(line, 70, curY);
             line = cleanText[n];
             curY += lineHeight;
-            if (curY > 650) break; // 避免文字蓋過圖片區塊
+
+            // 文字滿頁，跳頁處置
+            if (curY > 980) {
+              if (!isFirstPageInPdf) pdf.addPage();
+              pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, 210, 297);
+              isFirstPageInPdf = false;
+
+              // 開新畫布
+              canvas = document.createElement('canvas');
+              canvas.width = 800; canvas.height = 1131;
+              ctx = canvas.getContext('2d');
+              drawBackgroundCard(ctx, (entry.title || '') + ' (續)', dateStr, entry.mood);
+              curY = 200;
+            }
           } else {
             line = testLine;
           }
         }
         ctx.fillText(line, 70, curY);
 
-        // 4. 若有圖片，將圖片畫入 Canvas 底部
+        // 🖼️ 圖片自動跳頁判斷：如果剩餘高度小於 380px，直接跳到下一頁獨立畫圖，絕對不被切掉！
         if (imageSrc) {
+          const requiredHeight = 400; // 圖片預留高度
+          if (curY + requiredHeight > 980) {
+            // 存掉上一頁
+            if (!isFirstPageInPdf) pdf.addPage();
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, 210, 297);
+            isFirstPageInPdf = false;
+
+            // 開啟新的一頁專門給圖片
+            canvas = document.createElement('canvas');
+            canvas.width = 800; canvas.height = 1131;
+            ctx = canvas.getContext('2d');
+            drawBackgroundCard(ctx, (entry.title || '') + ' (相片備份)', dateStr, entry.mood);
+            curY = 200;
+          }
+
+          // 繪製圖片
           await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
               try {
-                const imgW = 400;
-                const imgH = (img.height * imgW) / img.width;
+                let imgW = 500;
+                let imgH = (img.height * imgW) / img.width;
+                if (imgH > 600) { // 防止圖片超高
+                  imgH = 600;
+                  imgW = (img.width * imgH) / img.height;
+                }
                 const imgX = (800 - imgW) / 2;
-                const imgY = Math.max(curY + 40, 680);
+                const imgY = curY + 40;
 
-                // 相片框效果
+                // 精美拍立得外框
                 ctx.fillStyle = '#ffffff';
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-                ctx.shadowBlur = 10;
-                ctx.fillRect(imgX - 10, imgY - 10, imgW + 20, imgH + 20);
+                ctx.shadowBlur = 12;
+                ctx.fillRect(imgX - 12, imgY - 12, imgW + 24, imgH + 24);
                 ctx.shadowColor = 'transparent';
 
                 ctx.drawImage(img, imgX, imgY, imgW, imgH);
@@ -786,10 +812,10 @@
           });
         }
 
-        // 5. 輸出轉入 PDF
-        const imgData = canvas.toDataURL('image/jpeg', 0.85);
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+        // 把當前完工的畫布推入 PDF
+        if (!isFirstPageInPdf) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, 210, 297);
+        isFirstPageInPdf = false;
       }
 
       pdf.save(filename);
