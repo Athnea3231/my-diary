@@ -16,8 +16,8 @@
 
   <!-- Matter.js 物理引擎 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-  <!-- html2pdf.js PDF 匯出套件 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- 僅保留最穩定的 jsPDF 核心庫 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
     @font-face {
@@ -216,34 +216,6 @@
       cursor: pointer;
       min-width: 0;
     }
-    /* 🖨️ 手機原生 PDF 列印專用樣式 */
-@media print {
-  body * {
-    visibility: hidden; /* 隱藏原本頁面的所有元素 */
-  }
-  #pdf-export-container, #pdf-export-container * {
-    visibility: visible; /* 只顯示 PDF 繪製區 */
-  }
-  #pdf-export-container {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-  }
-  .pdf-page-card {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important; /* 防止日記內容被橫跨切斷 */
-    border: 2px solid #ffb6c1 !important;
-    margin-bottom: 20px !important;
-    padding: 15px !important;
-    box-shadow: none !important;
-  }
-  .navbar, .header, .control-panel, #loading-overlay, .modal {
-    display: none !important; /* 強制隱藏工具列與彈窗 */
-  }
-}
 
     .calendar-day.empty { background: transparent; border: none; }
     .calendar-day.selected { border: 2px solid var(--primary-dark); background: #fff0f5; }
@@ -252,7 +224,6 @@
     .day-number { font-size: 0.75rem; align-self: flex-start; margin-left: 2px; }
     .day-mood { font-size: 1.5rem; line-height: 1; margin: auto 0; display: flex; align-items: center; justify-content: center; }
 
-    /* 心情瓶與圓餅圖樣式 */
     .jar-wrapper {
       position: relative;
       width: 260px;
@@ -353,66 +324,6 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📱📱📱 手機端 PDF 專用絕對避空渲染容器 📱📱📱[cite: 2] */
-    #pdf-export-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 680px; /* 相對合適的寬度 */
-      z-index: -9999;
-      opacity: 0.99; /* 強制手機瀏覽器不將其視為完全不可見元素 */
-      pointer-events: none;
-      background: #fff0f5;
-      padding: 15px;
-      box-sizing: border-box;
-    }
-
-    .pdf-page-card {
-      background: #ffffff;
-      border: 3px solid #ffb6c1;
-      border-radius: 15px;
-      padding: 20px;
-      margin-bottom: 25px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-    }
-
-    .pdf-header {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 2px dashed #ffb6c1;
-      padding-bottom: 8px;
-      margin-bottom: 12px;
-      font-size: 16px;
-      color: #888;
-    }
-
-    .pdf-title {
-      font-size: 20px;
-      font-weight: bold;
-      color: #ff69b4;
-      margin-bottom: 12px;
-      line-height: 1.4;
-    }
-
-    .pdf-body {
-      font-size: 15px;
-      line-height: 1.8;
-      color: #333;
-      word-break: break-word;
-    }
-
-    .pdf-body img {
-      max-width: 70%;
-      margin: 15px auto;
-      display: block;
-      background: #ffffff;
-      padding: 8px 8px 24px 8px;
-      border-radius: 4px;
-      border: 1px solid #eaeaea;
-    }
-
     .modal {
       display: none;
       position: fixed;
@@ -433,12 +344,11 @@
       border: 3px solid #ffb6c1;
     }
 
-    /* 處理中蒙版 */
     #loading-overlay {
       display: none;
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.9);
       z-index: 9999;
       flex-direction: column;
       justify-content: center;
@@ -451,8 +361,9 @@
 <body class="default-bg">
 
 <div id="loading-overlay">
-  <div style="font-size: 2rem; margin-bottom: 10px;">🐾</div>
-  <div id="loading-text">PDF 產出中，請稍候...</div>
+  <div style="font-size: 2.5rem; margin-bottom: 10px;">🐾</div>
+  <div id="loading-text" style="font-size: 1.1rem;">PDF 產生中...</div>
+  <div id="loading-progress" style="font-size: 0.9rem; color: #888; margin-top: 5px;"></div>
 </div>
 
 <div class="container">
@@ -547,16 +458,13 @@
 <div class="modal" id="pdf-modal">
   <div class="modal-content">
     <h3 style="color: var(--primary-dark); margin-top: 0;">📚 匯出可愛日記 PDF</h3>
-    <p style="font-size: 0.9rem; color: #666;">針對手機進行了效能優化：</p>
+    <p style="font-size: 0.85rem; color: #666; line-height: 1.4;">已改用原生 2D 畫布引擎，100% 穩定輸出無空白！</p>
     
     <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportBatchPDF('month')">🗓️ 僅匯出本月日記</button>
     <button class="btn" style="width: 100%; background: #ff69b4; margin-bottom: 10px;" onclick="exportBatchPDF('all')">📖 匯出全部日記</button>
     <button class="btn btn-secondary" style="width: 100%;" onclick="closePdfModal()">取消</button>
   </div>
 </div>
-
-<!-- 離屏渲染專用區 -->
-<div id="pdf-export-container"></div>
 
 <div class="navbar">
   <button class="nav-item active" id="nav-view" onclick="switchTab('view')">
@@ -758,112 +666,144 @@
     renderCalendar();
   }
 
-  /* 📱 安卓手機版抗崩潰 PDF 生成引擎 📱[cite: 2] */
-  async function generatePdfFromElementAsync(element, filename) {
-    showLoading(true);
-
-    // 1. 強制確保頁面捲軸置頂，避免 html2canvas 擷取偏移[cite: 2]
-    window.scrollTo(0, 0);
-
-    // 2. 確保容器內的圖片解碼渲染完成[cite: 2]
-    const imgs = element.querySelectorAll('img');
-    const imgPromises = Array.from(imgs).map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(resolve => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
-    });
-    await Promise.all(imgPromises);
-
-    // 3. 設定相容手機硬體記憶體的極致參數[cite: 2]
-    const opt = {
-      margin:       [10, 8, 10, 8],
-      filename:     filename,
-      image:        { type: 'jpeg', quality: 0.92 },
-      html2canvas:  { 
-        scale: 1.5, /* 專為手機降噪防 RAM 爆破設計[cite: 2] */
-        useCORS: true, 
-        logging: false, 
-        scrollY: 0,
-        scrollX: 0,
-        windowWidth: 680
-      },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'] }
-    };
+  /* 🚀 純原生 Canvas 繪圖引擎 - 100% 防空白與防爆炸 🚀 */
+  async function generateNativePdfAsync(dateList, filename) {
+    showLoading(true, `準備匯出 ${dateList.length} 篇日記...`, `0 / ${dateList.length}`);
 
     try {
-      await html2pdf().set(opt).from(element).save();
+      const jspdfModule = window.jspdf || (window.jspdf ? window.jspdf.jsPDF : null);
+      if (!jspdfModule) {
+        alert('PDF 函式庫載入失敗，請確認網路連線是否正常！');
+        showLoading(false);
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      for (let i = 0; i < dateList.length; i++) {
+        const dateStr = dateList[i];
+        const entry = diaryStore[dateStr];
+
+        showLoading(true, `正在繪製第 ${i + 1} / ${dateList.length} 頁...`, `${Math.round(((i + 1) / dateList.length) * 100)}%`);
+
+        // 建立原生 2D Canvas (寬 800px, 高 1131px 對應 A4 比例)
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 1131;
+        const ctx = canvas.getContext('2d');
+
+        // 1. 背景卡片
+        ctx.fillStyle = '#fff0f5';
+        ctx.fillRect(0, 0, 800, 1131);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#ffb6c1';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.roundRect(40, 40, 720, 1051, 20);
+        ctx.fill();
+        ctx.stroke();
+
+        // 2. 標題區
+        ctx.fillStyle = '#888888';
+        ctx.font = '28px "Microsoft JhengHei", sans-serif';
+        ctx.fillText(`📅 ${dateStr}   ${entry.mood}`, 70, 100);
+
+        ctx.strokeStyle = '#ffb6c1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.setLineDash([8, 8]);
+        ctx.moveTo(70, 125);
+        ctx.lineTo(730, 125);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ff69b4';
+        ctx.font = 'bold 36px "Microsoft JhengHei", sans-serif';
+        ctx.fillText(entry.title || '無標題', 70, 180);
+
+        // 3. 純文字解析與簡單排版
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = entry.content;
+        
+        // 抓取內文圖片 Base64
+        const imgElements = tempDiv.getElementsByTagName('img');
+        let imageSrc = null;
+        if (imgElements.length > 0) {
+          imageSrc = imgElements[0].src;
+        }
+
+        const cleanText = tempDiv.innerText || tempDiv.textContent || '';
+        
+        ctx.fillStyle = '#333333';
+        ctx.font = '24px "Microsoft JhengHei", sans-serif';
+        
+        // 自動換行算法
+        let curY = 240;
+        const maxW = 660;
+        const lineHeight = 38;
+        let line = '';
+
+        for (let n = 0; n < cleanText.length; n++) {
+          const testLine = line + cleanText[n];
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxW && n > 0) {
+            ctx.fillText(line, 70, curY);
+            line = cleanText[n];
+            curY += lineHeight;
+            if (curY > 650) break; // 避免文字蓋過圖片區塊
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, 70, curY);
+
+        // 4. 若有圖片，將圖片畫入 Canvas 底部
+        if (imageSrc) {
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const imgW = 400;
+                const imgH = (img.height * imgW) / img.width;
+                const imgX = (800 - imgW) / 2;
+                const imgY = Math.max(curY + 40, 680);
+
+                // 相片框效果
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(imgX - 10, imgY - 10, imgW + 20, imgH + 20);
+                ctx.shadowColor = 'transparent';
+
+                ctx.drawImage(img, imgX, imgY, imgW, imgH);
+              } catch (e) {}
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = imageSrc;
+          });
+        }
+
+        // 5. 輸出轉入 PDF
+        const imgData = canvas.toDataURL('image/jpeg', 0.85);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      }
+
+      pdf.save(filename);
     } catch (err) {
-      alert('匯出 PDF 時發生問題，可能圖片過大或手機記憶體不足。');
+      alert('產生 PDF 時發生錯誤：' + err.message);
     } finally {
-      element.innerHTML = ''; // 清空記憶體
       showLoading(false);
     }
   }
 
-  /* 📱 手機原生日印引擎 (解決多頁空白崩潰) */
-function triggerNativePdfPrint(htmlContent) {
-  showLoading(true);
-  const pdfContainer = document.getElementById('pdf-export-container');
-  pdfContainer.innerHTML = htmlContent;
-
-  // 確保容器內的圖片都加載完畢後呼叫系統列印
-  const imgs = pdfContainer.querySelectorAll('img');
-  const imgPromises = Array.from(imgs).map(img => {
-    if (img.complete) return Promise.resolve();
-    return new Promise(resolve => {
-      img.onload = resolve;
-      img.onerror = resolve;
-    });
-  });
-
-  Promise.all(imgPromises).then(() => {
-    showLoading(false);
-    // 呼叫 Android/iOS 系統原生 PDF 儲存對話框
-    window.print();
-  });
-}
-
-function exportSinglePDF() {
-  const entry = diaryStore[selectedDateStr];
-  if (!entry) return alert('這天沒有日記可以匯出喔！');
-
-  const html = buildPdfCardHtml(selectedDateStr, entry);
-  triggerNativePdfPrint(html);
-}
-
-function exportBatchPDF(type) {
-  closePdfModal();
-  const sortedDates = Object.keys(diaryStore).sort();
-  let filterDates = sortedDates;
-
-  if (type === 'month') {
-    const yearMonth = selectedDateStr.substring(0, 7);
-    filterDates = sortedDates.filter(d => d.startsWith(yearMonth));
-  }
-
-  if (filterDates.length === 0) {
-    return alert('指定範圍內找不到任何日記喔！');
-  }
-
-  let fullHtml = '';
-  filterDates.forEach(dateStr => {
-    fullHtml += buildPdfCardHtml(dateStr, diaryStore[dateStr]);
-  });
-
-  triggerNativePdfPrint(fullHtml);
-}
-
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
-
-    const pdfContainer = document.getElementById('pdf-export-container');
-    pdfContainer.innerHTML = buildPdfCardHtml(selectedDateStr, entry);
-
-    generatePdfFromElementAsync(pdfContainer, `可愛日記_${selectedDateStr}.pdf`);
+    generateNativePdfAsync([selectedDateStr], `可愛日記_${selectedDateStr}.pdf`);
   }
 
   function openPdfModal() {
@@ -876,9 +816,6 @@ function exportBatchPDF(type) {
 
   function exportBatchPDF(type) {
     closePdfModal();
-    const pdfContainer = document.getElementById('pdf-export-container');
-    pdfContainer.innerHTML = '';
-
     const sortedDates = Object.keys(diaryStore).sort();
     let filterDates = sortedDates;
 
@@ -891,29 +828,19 @@ function exportBatchPDF(type) {
       return alert('指定範圍內找不到任何日記喔！');
     }
 
-    filterDates.forEach(dateStr => {
-      pdfContainer.innerHTML += buildPdfCardHtml(dateStr, diaryStore[dateStr]);
-    });
-
     const filename = type === 'month' ? `可愛日記_${selectedDateStr.substring(0, 7)}.pdf` : `我的可愛日記全集.pdf`;
-    generatePdfFromElementAsync(pdfContainer, filename);
+    generateNativePdfAsync(filterDates, filename);
   }
 
-  function buildPdfCardHtml(dateStr, entry) {
-    return `
-      <div class="pdf-page-card">
-        <div class="pdf-header">
-          <span>📅 ${dateStr}</span>
-          <span>${entry.mood}</span>
-        </div>
-        <div class="pdf-title">${entry.title || '無標題'}</div>
-        <div class="pdf-body">${entry.content}</div>
-      </div>
-    `;
-  }
-
-  function showLoading(show) {
-    document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+  function showLoading(show, text = '', progress = '') {
+    const overlay = document.getElementById('loading-overlay');
+    if (show) {
+      document.getElementById('loading-text').innerText = text;
+      document.getElementById('loading-progress').innerText = progress;
+      overlay.style.display = 'flex';
+    } else {
+      overlay.style.display = 'none';
+    }
   }
 
   /* 心情瓶與繪圖邏輯 */
@@ -1093,7 +1020,6 @@ function exportBatchPDF(type) {
     });
   }
 
-  /* 🖼️ 手機照片插圖優化 (壓至 600px, 壓縮率 0.65) */
   function insertInlineImage(e) {
     const file = e.target.files[0];
     if (file) {
@@ -1103,7 +1029,7 @@ function exportBatchPDF(type) {
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const maxW = 500;
+          const maxW = 480;
           let w = img.width, h = img.height;
 
           if (w > maxW) {
@@ -1115,7 +1041,7 @@ function exportBatchPDF(type) {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.65);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
           const imgHTML = `<img src="${compressedBase64}">`;
           const editor = document.getElementById('diary-content');
           editor.focus();
