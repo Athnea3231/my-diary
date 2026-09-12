@@ -325,15 +325,16 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 防字體重疊與防裁切核心重構 */
+    /* 📄 PDF 防字體重疊與防空白的核心修復 */
     #pdf-export-container {
-      position: absolute;
+      position: fixed;
       left: -9999px;
-      top: -9999px;
-      width: 750px; /* 固定寬度確保截圖高度計算正常 */
+      top: 0;
+      width: 700px;
       background: #fff0f5;
-      padding: 10px;
+      padding: 20px;
       font-family: 'CustomFont', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+      box-sizing: border-box;
     }
 
     .pdf-page-card {
@@ -518,7 +519,7 @@
   </div>
 </div>
 
-<!-- 隱藏的 PDF 渲染緩衝區 -->
+<!-- 隱藏的 PDF 渲染緩衝區（改為離屏渲染機制） -->
 <div id="pdf-export-container"></div>
 
 <div class="navbar">
@@ -721,7 +722,7 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 精準防重疊與防裁切引擎 */
+  /* 📄 PDF 精準防重疊與防空白渲染函數 */
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
@@ -788,11 +789,12 @@
       pagebreak:    { mode: ['css', 'legacy'], avoid: ['img', 'p', '.pdf-header', '.pdf-title'] }
     };
 
+    // 使用離屏渲染，給予 250ms 時間確保 DOM 完成繪製與圖片加載
     setTimeout(() => {
       html2pdf().set(opt).from(element).save().then(() => {
-        element.innerHTML = '';
+        element.innerHTML = ''; // 清空暫存區
       });
-    }, 200);
+    }, 250);
   }
 
   /* 🏺 心情瓶與繪圖邏輯 */
