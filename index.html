@@ -224,7 +224,7 @@
     .day-number { font-size: 0.75rem; align-self: flex-start; margin-left: 2px; }
     .day-mood { font-size: 1.5rem; line-height: 1; margin: auto 0; display: flex; align-items: center; justify-content: center; }
 
-    /* 🏺 心情瓶與圓餅圖樣式 */
+    /* 心情瓶與圓餅圖樣式 */
     .jar-wrapper {
       position: relative;
       width: 260px;
@@ -325,15 +325,17 @@
     .nav-item .icon { font-size: 1.3rem; margin-bottom: 2px; }
     .nav-item.active { color: var(--primary-dark); font-weight: bold; }
 
-    /* 📄 PDF 防字體重疊與防空白的核心修復 */
+    /* 📱📱📱 手機端 PDF 專用絕對避空渲染容器 📱📱📱[cite: 2] */
     #pdf-export-container {
-      position: fixed;
-      left: -9999px;
+      position: absolute;
       top: 0;
-      width: 700px;
+      left: 0;
+      width: 680px; /* 相對合適的寬度 */
+      z-index: -9999;
+      opacity: 0.99; /* 強制手機瀏覽器不將其視為完全不可見元素 */
+      pointer-events: none;
       background: #fff0f5;
-      padding: 20px;
-      font-family: 'CustomFont', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+      padding: 15px;
       box-sizing: border-box;
     }
 
@@ -342,8 +344,10 @@
       border: 3px solid #ffb6c1;
       border-radius: 15px;
       padding: 20px;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
 
     .pdf-header {
@@ -354,8 +358,6 @@
       margin-bottom: 12px;
       font-size: 16px;
       color: #888;
-      page-break-after: avoid;
-      break-after: avoid;
     }
 
     .pdf-title {
@@ -363,23 +365,14 @@
       font-weight: bold;
       color: #ff69b4;
       margin-bottom: 12px;
-      line-height: 1.5;
-      page-break-after: avoid;
-      break-after: avoid;
+      line-height: 1.4;
     }
 
     .pdf-body {
       font-size: 15px;
-      line-height: 1.85 !important;
-      letter-spacing: 0.5px;
+      line-height: 1.8;
       color: #333;
       word-break: break-word;
-    }
-
-    .pdf-body p, .pdf-body div {
-      margin-bottom: 8px;
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
     }
 
     .pdf-body img {
@@ -389,13 +382,9 @@
       background: #ffffff;
       padding: 8px 8px 24px 8px;
       border-radius: 4px;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
       border: 1px solid #eaeaea;
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
     }
 
-    /* Modal 彈出視窗 */
     .modal {
       display: none;
       position: fixed;
@@ -415,9 +404,28 @@
       text-align: center;
       border: 3px solid #ffb6c1;
     }
+
+    /* 處理中蒙版 */
+    #loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.85);
+      z-index: 9999;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      color: var(--primary-dark);
+    }
   </style>
 </head>
 <body class="default-bg">
+
+<div id="loading-overlay">
+  <div style="font-size: 2rem; margin-bottom: 10px;">🐾</div>
+  <div id="loading-text">PDF 產出中，請稍候...</div>
+</div>
 
 <div class="container">
   <div class="header">
@@ -511,15 +519,15 @@
 <div class="modal" id="pdf-modal">
   <div class="modal-content">
     <h3 style="color: var(--primary-dark); margin-top: 0;">📚 匯出可愛日記 PDF</h3>
-    <p style="font-size: 0.9rem; color: #666;">請選擇要匯出的範圍：</p>
+    <p style="font-size: 0.9rem; color: #666;">針對手機進行了效能優化：</p>
     
     <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportBatchPDF('month')">🗓️ 僅匯出本月日記</button>
-    <button class="btn" style="width: 100%; background: #ff69b4; margin-bottom: 10px;" onclick="exportBatchPDF('all')">📖 匯出全部日記 (整本)</button>
+    <button class="btn" style="width: 100%; background: #ff69b4; margin-bottom: 10px;" onclick="exportBatchPDF('all')">📖 匯出全部日記</button>
     <button class="btn btn-secondary" style="width: 100%;" onclick="closePdfModal()">取消</button>
   </div>
 </div>
 
-<!-- 隱藏的 PDF 渲染緩衝區（改為離屏渲染機制） -->
+<!-- 離屏渲染專用區 -->
 <div id="pdf-export-container"></div>
 
 <div class="navbar">
@@ -722,7 +730,51 @@
     renderCalendar();
   }
 
-  /* 📄 PDF 精準防重疊與防空白渲染函數 */
+  /* 📱 安卓手機版抗崩潰 PDF 生成引擎 📱[cite: 2] */
+  async function generatePdfFromElementAsync(element, filename) {
+    showLoading(true);
+
+    // 1. 強制確保頁面捲軸置頂，避免 html2canvas 擷取偏移[cite: 2]
+    window.scrollTo(0, 0);
+
+    // 2. 確保容器內的圖片解碼渲染完成[cite: 2]
+    const imgs = element.querySelectorAll('img');
+    const imgPromises = Array.from(imgs).map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    });
+    await Promise.all(imgPromises);
+
+    // 3. 設定相容手機硬體記憶體的極致參數[cite: 2]
+    const opt = {
+      margin:       [10, 8, 10, 8],
+      filename:     filename,
+      image:        { type: 'jpeg', quality: 0.92 },
+      html2canvas:  { 
+        scale: 1.5, /* 專為手機降噪防 RAM 爆破設計[cite: 2] */
+        useCORS: true, 
+        logging: false, 
+        scrollY: 0,
+        scrollX: 0,
+        windowWidth: 680
+      },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['css', 'legacy'] }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      alert('匯出 PDF 時發生問題，可能圖片過大或手機記憶體不足。');
+    } finally {
+      element.innerHTML = ''; // 清空記憶體
+      showLoading(false);
+    }
+  }
+
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
     if (!entry) return alert('這天沒有日記可以匯出喔！');
@@ -730,7 +782,7 @@
     const pdfContainer = document.getElementById('pdf-export-container');
     pdfContainer.innerHTML = buildPdfCardHtml(selectedDateStr, entry);
 
-    generatePdfFromElement(pdfContainer, `可愛日記_${selectedDateStr}.pdf`);
+    generatePdfFromElementAsync(pdfContainer, `可愛日記_${selectedDateStr}.pdf`);
   }
 
   function openPdfModal() {
@@ -763,7 +815,7 @@
     });
 
     const filename = type === 'month' ? `可愛日記_${selectedDateStr.substring(0, 7)}.pdf` : `我的可愛日記全集.pdf`;
-    generatePdfFromElement(pdfContainer, filename);
+    generatePdfFromElementAsync(pdfContainer, filename);
   }
 
   function buildPdfCardHtml(dateStr, entry) {
@@ -779,25 +831,11 @@
     `;
   }
 
-  function generatePdfFromElement(element, filename) {
-    const opt = {
-      margin:       [12, 10, 12, 10],
-      filename:     filename,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false, letterRendering: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'], avoid: ['img', 'p', '.pdf-header', '.pdf-title'] }
-    };
-
-    // 使用離屏渲染，給予 250ms 時間確保 DOM 完成繪製與圖片加載
-    setTimeout(() => {
-      html2pdf().set(opt).from(element).save().then(() => {
-        element.innerHTML = ''; // 清空暫存區
-      });
-    }, 250);
+  function showLoading(show) {
+    document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
   }
 
-  /* 🏺 心情瓶與繪圖邏輯 */
+  /* 心情瓶與繪圖邏輯 */
   function renderJarPage() {
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
@@ -974,6 +1012,7 @@
     });
   }
 
+  /* 🖼️ 手機照片插圖優化 (壓至 600px, 壓縮率 0.65) */
   function insertInlineImage(e) {
     const file = e.target.files[0];
     if (file) {
@@ -983,7 +1022,7 @@
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const maxW = 600;
+          const maxW = 500;
           let w = img.width, h = img.height;
 
           if (w > maxW) {
@@ -995,7 +1034,7 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.65);
           const imgHTML = `<img src="${compressedBase64}">`;
           const editor = document.getElementById('diary-content');
           editor.focus();
