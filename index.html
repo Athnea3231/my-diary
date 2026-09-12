@@ -216,6 +216,34 @@
       cursor: pointer;
       min-width: 0;
     }
+    /* 🖨️ 手機原生 PDF 列印專用樣式 */
+@media print {
+  body * {
+    visibility: hidden; /* 隱藏原本頁面的所有元素 */
+  }
+  #pdf-export-container, #pdf-export-container * {
+    visibility: visible; /* 只顯示 PDF 繪製區 */
+  }
+  #pdf-export-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+  .pdf-page-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important; /* 防止日記內容被橫跨切斷 */
+    border: 2px solid #ffb6c1 !important;
+    margin-bottom: 20px !important;
+    padding: 15px !important;
+    box-shadow: none !important;
+  }
+  .navbar, .header, .control-panel, #loading-overlay, .modal {
+    display: none !important; /* 強制隱藏工具列與彈窗 */
+  }
+}
 
     .calendar-day.empty { background: transparent; border: none; }
     .calendar-day.selected { border: 2px solid var(--primary-dark); background: #fff0f5; }
@@ -774,6 +802,59 @@
       showLoading(false);
     }
   }
+
+  /* 📱 手機原生日印引擎 (解決多頁空白崩潰) */
+function triggerNativePdfPrint(htmlContent) {
+  showLoading(true);
+  const pdfContainer = document.getElementById('pdf-export-container');
+  pdfContainer.innerHTML = htmlContent;
+
+  // 確保容器內的圖片都加載完畢後呼叫系統列印
+  const imgs = pdfContainer.querySelectorAll('img');
+  const imgPromises = Array.from(imgs).map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    });
+  });
+
+  Promise.all(imgPromises).then(() => {
+    showLoading(false);
+    // 呼叫 Android/iOS 系統原生 PDF 儲存對話框
+    window.print();
+  });
+}
+
+function exportSinglePDF() {
+  const entry = diaryStore[selectedDateStr];
+  if (!entry) return alert('這天沒有日記可以匯出喔！');
+
+  const html = buildPdfCardHtml(selectedDateStr, entry);
+  triggerNativePdfPrint(html);
+}
+
+function exportBatchPDF(type) {
+  closePdfModal();
+  const sortedDates = Object.keys(diaryStore).sort();
+  let filterDates = sortedDates;
+
+  if (type === 'month') {
+    const yearMonth = selectedDateStr.substring(0, 7);
+    filterDates = sortedDates.filter(d => d.startsWith(yearMonth));
+  }
+
+  if (filterDates.length === 0) {
+    return alert('指定範圍內找不到任何日記喔！');
+  }
+
+  let fullHtml = '';
+  filterDates.forEach(dateStr => {
+    fullHtml += buildPdfCardHtml(dateStr, diaryStore[dateStr]);
+  });
+
+  triggerNativePdfPrint(fullHtml);
+}
 
   function exportSinglePDF() {
     const entry = diaryStore[selectedDateStr];
